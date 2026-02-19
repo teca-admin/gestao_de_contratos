@@ -10,6 +10,7 @@ export type BaseLocation = string;
 
 export interface PurchaseRecord {
   id?: string;
+  user_id?: string;
   fornecedor: string;
   categoria: Category;
   base: BaseLocation;
