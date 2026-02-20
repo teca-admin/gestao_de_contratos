@@ -46,6 +46,8 @@ const App: React.FC = () => {
     vencimento: ''
   });
 
+  const [selectedBase, setSelectedBase] = useState<string | null>(null);
+
   useEffect(() => {
     const savedUser = localStorage.getItem('wfs_session');
     if (savedUser) {
@@ -203,6 +205,11 @@ const App: React.FC = () => {
     return Array.from(map.entries()).map(([base, stats]) => ({ base, ...stats }));
   }, [records]);
 
+  const filteredRecords = useMemo(() => {
+    if (!selectedBase) return records;
+    return records.filter(r => r.base === selectedBase);
+  }, [records, selectedBase]);
+
   const totalGeral = records.reduce((acc, curr) => acc + Number(curr.valor), 0);
   const formatCurrency = (val: number) => 
     val.toLocaleString(APP_CONFIG.LOCALE, { style: 'currency', currency: APP_CONFIG.CURRENCY });
@@ -306,25 +313,48 @@ const App: React.FC = () => {
       </header>
 
       <main className="max-w-[1600px] mx-auto px-8 py-10 space-y-10">
-        <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-          <div className="bg-white p-7 border border-slate-200 shadow-sm border-t-4 border-t-slate-900">
-            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">Custo Global Consolidade</p>
-            <p className="text-3xl font-extrabold text-slate-900">{formatCurrency(totalGeral)}</p>
+        <section className="flex flex-col xl:flex-row gap-6">
+          <div 
+            onClick={() => setSelectedBase(null)}
+            className={`w-full xl:w-[350px] shrink-0 p-7 border shadow-sm border-t-4 flex flex-col justify-center cursor-pointer transition-all active:scale-95
+              ${selectedBase === null ? 'bg-slate-900 border-slate-900 border-t-slate-800' : 'bg-white border-slate-200 border-t-slate-900 hover:border-slate-300'}
+            `}
+          >
+            <p className={`text-[11px] font-bold uppercase tracking-widest mb-1 ${selectedBase === null ? 'text-slate-400' : 'text-slate-400'}`}>Custo Global Consolidado</p>
+            <p className={`text-3xl font-extrabold ${selectedBase === null ? 'text-white' : 'text-slate-900'}`}>{formatCurrency(totalGeral)}</p>
           </div>
-          {summaries.map((s) => (
-            <div key={s.base} className="bg-white p-7 border border-slate-200 shadow-sm border-t-4 border-t-indigo-500">
-              <div className="flex justify-between items-center mb-4">
-                <span className="w-10 h-10 bg-slate-50 flex items-center justify-center font-black text-slate-600 text-[11px]">{s.base}</span>
-                <span className="text-[11px] font-bold text-slate-400 uppercase">{s.count} lançamentos</span>
-              </div>
-              <p className="text-2xl font-extrabold text-slate-900">{formatCurrency(s.total)}</p>
+          
+          <div className="flex-1 overflow-x-auto pb-2">
+            <div className="flex gap-4 min-w-max">
+              {summaries.map((s) => (
+                <div 
+                  key={s.base} 
+                  onClick={() => setSelectedBase(selectedBase === s.base ? null : s.base)}
+                  className={`w-[260px] p-6 border shadow-sm border-t-4 cursor-pointer transition-all active:scale-95
+                    ${selectedBase === s.base ? 'bg-indigo-600 border-indigo-600 border-t-indigo-400' : 'bg-white border-slate-200 border-t-indigo-500 hover:border-indigo-200'}
+                  `}
+                >
+                  <div className="flex justify-between items-center mb-3">
+                    <span className={`w-8 h-8 flex items-center justify-center font-black text-[10px] rounded-sm ${selectedBase === s.base ? 'bg-indigo-500 text-white' : 'bg-slate-50 text-slate-600'}`}>{s.base}</span>
+                    <span className={`text-[10px] font-bold uppercase tracking-tight ${selectedBase === s.base ? 'text-indigo-200' : 'text-slate-400'}`}>{s.count} lançamentos</span>
+                  </div>
+                  <p className={`text-xl font-extrabold ${selectedBase === s.base ? 'text-white' : 'text-slate-900'}`}>{formatCurrency(s.total)}</p>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </section>
 
         <section className="bg-white border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
           <div className="p-8 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight uppercase">Registros Operacionais</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="text-xl font-extrabold text-slate-900 tracking-tight uppercase">Registros Operacionais</h2>
+              {selectedBase && (
+                <span className="px-3 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-black uppercase rounded-full">
+                  Filtrado por: {selectedBase}
+                </span>
+              )}
+            </div>
             <button onClick={() => handleOpenModal()} className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 shadow-lg active:scale-95 flex items-center gap-2">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -352,10 +382,10 @@ const App: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {records.length === 0 && !loading ? (
-                  <tr><td colSpan={7} className="py-20 text-slate-300 font-bold uppercase tracking-widest">Aguardando dados...</td></tr>
+                {filteredRecords.length === 0 && !loading ? (
+                  <tr><td colSpan={7} className="py-20 text-slate-300 font-bold uppercase tracking-widest">Nenhum registro encontrado</td></tr>
                 ) : (
-                  records.map((record) => (
+                  filteredRecords.map((record) => (
                     <tr key={record.id} onContextMenu={(e) => handleContextMenu(e, record.id!)} className="hover:bg-slate-50 transition-all cursor-context-menu">
                       <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.fornecedor}</td>
                       <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.categoria}</td>
