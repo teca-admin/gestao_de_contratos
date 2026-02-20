@@ -238,7 +238,7 @@ const App: React.FC = () => {
             
             <table className="w-full text-center border-collapse table-fixed min-w-[1200px]">
               <thead>
-                <tr className="bg-slate-50/50 text-slate-400 text-[11px] uppercase font-black tracking-widest align-middle">
+                <tr className="bg-[#0F172A] text-white text-[11px] uppercase font-black tracking-widest align-middle">
                   <th className="px-6 py-5 w-[16%] text-center">FORNECEDOR</th>
                   <th className="px-6 py-5 w-[12%] text-center">CATEGORIA</th>
                   <th className="px-6 py-5 w-[12%] text-center">BASE</th>
