@@ -47,6 +47,7 @@ const App: React.FC = () => {
   });
 
   const [selectedBase, setSelectedBase] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
 
   useEffect(() => {
     const savedUser = localStorage.getItem('wfs_session');
@@ -196,21 +197,32 @@ const App: React.FC = () => {
     setContextMenu({ x: e.clientX, y: e.clientY, recordId });
   };
 
+  const recordsInDateRange = useMemo(() => {
+    if (!dateRange.start && !dateRange.end) return records;
+    
+    return records.filter(r => {
+      const recordDate = r.vencimento;
+      if (dateRange.start && recordDate < dateRange.start) return false;
+      if (dateRange.end && recordDate > dateRange.end) return false;
+      return true;
+    });
+  }, [records, dateRange]);
+
   const summaries = useMemo(() => {
     const map = new Map<string, { total: number; count: number }>();
-    records.forEach(r => {
+    recordsInDateRange.forEach(r => {
       const current = map.get(r.base) || { total: 0, count: 0 };
       map.set(r.base, { total: current.total + Number(r.valor), count: current.count + 1 });
     });
     return Array.from(map.entries()).map(([base, stats]) => ({ base, ...stats }));
-  }, [records]);
+  }, [recordsInDateRange]);
 
   const filteredRecords = useMemo(() => {
-    if (!selectedBase) return records;
-    return records.filter(r => r.base === selectedBase);
-  }, [records, selectedBase]);
+    if (!selectedBase) return recordsInDateRange;
+    return recordsInDateRange.filter(r => r.base === selectedBase);
+  }, [recordsInDateRange, selectedBase]);
 
-  const totalGeral = records.reduce((acc, curr) => acc + Number(curr.valor), 0);
+  const totalGeral = recordsInDateRange.reduce((acc, curr) => acc + Number(curr.valor), 0);
   const formatCurrency = (val: number) => 
     val.toLocaleString(APP_CONFIG.LOCALE, { style: 'currency', currency: APP_CONFIG.CURRENCY });
 
@@ -346,7 +358,7 @@ const App: React.FC = () => {
         </section>
 
         <section className="bg-white border border-slate-200 shadow-sm overflow-hidden min-h-[400px]">
-          <div className="p-8 border-b border-slate-100 flex items-center justify-between">
+          <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-extrabold text-slate-900 tracking-tight uppercase">Registros Operacionais</h2>
               {selectedBase && (
@@ -355,12 +367,36 @@ const App: React.FC = () => {
                 </span>
               )}
             </div>
-            <button onClick={() => handleOpenModal()} className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 shadow-lg active:scale-95 flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Novo Registro
-            </button>
+            
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="flex items-center gap-2">
+                <div className="flex flex-col">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">De</label>
+                  <input 
+                    type="date" 
+                    className="h-10 px-3 bg-slate-50 border border-slate-200 text-slate-900 font-bold text-[10px] uppercase rounded-sm focus:outline-none focus:border-indigo-500"
+                    value={dateRange.start}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest ml-1">Até</label>
+                  <input 
+                    type="date" 
+                    className="h-10 px-3 bg-slate-50 border border-slate-200 text-slate-900 font-bold text-[10px] uppercase rounded-sm focus:outline-none focus:border-indigo-500"
+                    value={dateRange.end}
+                    onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <button onClick={() => handleOpenModal()} className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 shadow-lg active:scale-95 flex items-center gap-2 whitespace-nowrap">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Novo Registro
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto relative">
