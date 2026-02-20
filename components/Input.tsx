@@ -130,17 +130,9 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
         </svg>
       </button>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && (
         <div 
-          data-select-portal
-          style={{ 
-            position: 'fixed', 
-            top: coords.top + 4, 
-            left: coords.left, 
-            width: coords.width,
-            zIndex: 9999 
-          }}
-          className="bg-white border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 rounded-sm"
+          className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl rounded-sm flex flex-col z-50"
         >
           <div className="max-h-60 overflow-y-auto py-1">
             {options.map((opt) => (
@@ -150,7 +142,7 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => handleSelect(opt)}
                 className={`
-                  w-full px-4 py-3 text-[11px] text-left font-semibold transition-colors
+                  w-full px-4 py-3 text-[11px] text-left font-bold transition-colors uppercase
                   ${value === opt ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}
                 `}
               >
@@ -158,8 +150,7 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
               </button>
             ))}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
       
       {error && <span className="text-[10px] font-semibold text-red-500 mt-1">{error}</span>}
@@ -289,16 +280,9 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
         </svg>
       </button>
 
-      {isOpen && coords.width > 0 && createPortal(
+      {isOpen && (
         <div 
-          data-datepicker-portal
-          style={{ 
-            position: 'fixed', 
-            top: coords.top + 8, 
-            left: coords.left, 
-            zIndex: 9999 
-          }}
-          className="w-[280px] bg-white border border-slate-200 shadow-[0_30px_60px_-12px_rgba(0,0,0,0.3)] p-4 animate-in fade-in slide-in-from-top-2 duration-200 rounded-sm"
+          className="absolute top-full left-0 mt-1 w-[280px] bg-white border border-slate-200 shadow-2xl p-4 rounded-sm z-50"
         >
           <div className="flex items-center justify-between mb-4">
             <button type="button" onClick={handlePrevMonth} className="p-2 hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-all rounded-full">
@@ -324,9 +308,9 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
             ))}
           </div>
 
-          <div className="grid grid-cols-7 gap-px bg-slate-100 border border-slate-100 overflow-hidden">
+          <div className="grid grid-cols-7 border-t border-l border-slate-100">
             {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} className="bg-white aspect-square" />
+              <div key={`empty-${i}`} className="bg-white aspect-square border-b border-r border-slate-100" />
             ))}
             
             {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -346,9 +330,9 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
                   type="button"
                   onClick={() => handleSelectDay(day)}
                   className={`
-                    relative bg-white aspect-square flex items-center justify-center text-[11px] font-bold transition-all
+                    relative aspect-square flex items-center justify-center text-[11px] font-bold transition-all border-b border-r border-slate-100
                     hover:bg-indigo-50 hover:text-indigo-600
-                    ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white ring-2 ring-indigo-600 ring-inset' : 'text-slate-600'}
+                    ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white' : 'text-slate-600 bg-white'}
                   `}
                 >
                   {day}
@@ -360,11 +344,10 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
             })}
             
             {Array.from({ length: totalGridSlots - totalSlotsNeeded }).map((_, i) => (
-              <div key={`empty-end-${i}`} className="bg-white aspect-square" />
+              <div key={`empty-end-${i}`} className="bg-white aspect-square border-b border-r border-slate-100" />
             ))}
           </div>
-        </div>,
-        document.body
+        </div>
       )}
 
       {error && <span className="text-[10px] font-semibold text-red-500 mt-1">{error}</span>}

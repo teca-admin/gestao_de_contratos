@@ -268,52 +268,29 @@ const App: React.FC = () => {
                       onContextMenu={(e) => handleContextMenu(e, record.id)}
                       className="hover:bg-indigo-50/30 transition-all cursor-context-menu align-middle"
                     >
-                      <td className="px-6 py-6 text-center">
-                        <div className="font-bold text-slate-900 text-[11px] truncate uppercase tracking-tight mx-auto max-w-full" title={record.fornecedor}>
-                          {record.fornecedor}
-                        </div>
+                      <td className="px-6 py-6 text-center text-[10px] text-black font-bold uppercase">
+                        {record.fornecedor}
                       </td>
-                      <td className="px-6 py-6 text-center">
-                        <span className={`
-                          text-[11px] font-black px-2.5 py-1 uppercase tracking-widest border inline-block w-full text-center
-                          ${record.categoria === Category.LOCACAO ? 'bg-indigo-50 text-indigo-700 border-indigo-100' : ''}
-                          ${record.categoria === Category.MATERIAL ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : ''}
-                          ${record.categoria === Category.SERVICO ? 'bg-amber-50 text-amber-700 border-amber-100' : ''}
-                          ${record.categoria === Category.HORA_EXTRA ? 'bg-rose-50 text-rose-700 border-rose-100' : ''}
-                        `}>
-                          {record.categoria}
-                        </span>
+                      <td className="px-6 py-6 text-center text-[10px] text-black font-bold uppercase">
+                        {record.categoria}
                       </td>
-                      <td className="px-6 py-6 text-center">
-                        <span className="inline-flex px-3 py-1 bg-slate-900 text-white text-[11px] font-black tracking-tighter">
-                          {record.base}
-                        </span>
+                      <td className="px-6 py-6 text-center text-[10px] text-black font-bold uppercase">
+                        {record.base}
                       </td>
-                      <td className="px-6 py-6 text-center">
-                        <div className="text-[11px] font-bold text-slate-500 break-all">
-                          {record.documento || <span className="text-slate-200">SEM REF.</span>}
-                        </div>
+                      <td className="px-6 py-6 text-center text-[10px] text-black font-bold uppercase">
+                        {record.documento || 'SEM REF.'}
                       </td>
-                      <td className="px-6 py-6 text-center">
-                        <div className="text-[11px] text-slate-500 leading-relaxed italic line-clamp-2" title={record.descricao}>
-                          {record.descricao || 'Nenhuma descrição técnica informada'}
-                        </div>
+                      <td className="px-6 py-6 text-center text-[10px] text-black font-bold uppercase">
+                        {record.descricao || '---'}
                       </td>
-                      <td className="px-6 py-6 text-center">
-                         <div className="text-[11px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 inline-block rounded-sm">
-                           #{record.pedido || '---'}
-                         </div>
+                      <td className="px-6 py-6 text-center text-[10px] text-black font-bold uppercase">
+                         #{record.pedido || '---'}
                       </td>
-                      <td className="px-6 py-6 text-center">
-                        <span className="text-[11px] font-black text-slate-900">
-                          {formatCurrency(Number(record.valor))}
-                        </span>
+                      <td className="px-6 py-6 text-center text-[10px] text-black font-bold uppercase">
+                        {formatCurrency(Number(record.valor))}
                       </td>
-                      <td className="px-6 py-6 text-center">
-                        <div className="text-[11px] font-bold text-slate-900">
-                          {new Date(record.vencimento + 'T00:00:00').toLocaleDateString(APP_CONFIG.LOCALE)}
-                        </div>
-                        <div className="text-[11px] text-slate-400 font-medium uppercase">Previsão</div>
+                      <td className="px-6 py-6 text-center text-[10px] text-black font-bold uppercase">
+                        {new Date(record.vencimento + 'T00:00:00').toLocaleDateString(APP_CONFIG.LOCALE)}
                       </td>
                     </tr>
                   ))

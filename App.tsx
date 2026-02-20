@@ -357,13 +357,13 @@ const App: React.FC = () => {
                 ) : (
                   records.map((record) => (
                     <tr key={record.id} onContextMenu={(e) => handleContextMenu(e, record.id!)} className="hover:bg-slate-50 transition-all cursor-context-menu">
-                      <td className="px-6 py-6 font-bold text-slate-900 text-[11px] uppercase">{record.fornecedor}</td>
-                      <td className="px-6 py-6"><span className="text-[10px] font-black px-2 py-1 bg-slate-100 border border-slate-200">{record.categoria}</span></td>
-                      <td className="px-6 py-6"><span className="px-2 py-1 bg-slate-900 text-white text-[10px] font-black">{record.base}</span></td>
-                      <td className="px-6 py-6 text-slate-500 font-bold">{record.documento || '---'}</td>
-                      <td className="px-6 py-6"><span className="text-indigo-600 font-black">#{record.pedido || '---'}</span></td>
-                      <td className="px-6 py-6 font-black text-slate-900">{formatCurrency(Number(record.valor))}</td>
-                      <td className="px-6 py-6 font-bold">{new Date(record.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
+                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.fornecedor}</td>
+                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.categoria}</td>
+                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.base}</td>
+                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.documento || '---'}</td>
+                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">#{record.pedido || '---'}</td>
+                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{formatCurrency(Number(record.valor))}</td>
+                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{new Date(record.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                     </tr>
                   ))
                 )}
