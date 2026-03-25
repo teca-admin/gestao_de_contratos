@@ -31,6 +31,7 @@ const App: React.FC = () => {
   const [records, setRecords] = useState<PurchaseRecord[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [suppliers, setSuppliers] = useState<string[]>([]);
+  const [bases, setBases] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -62,8 +63,41 @@ const App: React.FC = () => {
       fetchRecords();
       fetchCategories();
       fetchSuppliers();
+      fetchBases();
     }
   }, [user]);
+
+  const fetchBases = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('bases')
+        .select('nome')
+        .order('nome');
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setBases(data.map(b => b.nome));
+      } else {
+        setBases(INITIAL_BASES);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar bases:', error);
+      setBases(INITIAL_BASES);
+    }
+  };
+
+  const handleSaveBase = async (name: string) => {
+    try {
+      const { error } = await supabase
+        .from('bases')
+        .insert([{ nome: name.toUpperCase() }]);
+      if (error) throw error;
+      fetchBases();
+      setFormData(f => ({ ...f, base: name.toUpperCase() }));
+    } catch (error: any) {
+      alert('Erro ao salvar base: ' + error.message);
+    }
+  };
 
   const fetchSuppliers = async () => {
     try {
@@ -493,7 +527,15 @@ const App: React.FC = () => {
               addNewLabel="Cadastrar Categoria"
               required 
             />
-            <SearchableSelect label="BASE" options={INITIAL_BASES} value={formData.base} onChange={e => setFormData(f => ({ ...f, base: e.target.value }))} required />
+            <SearchableSelect 
+              label="BASE" 
+              options={bases} 
+              value={formData.base} 
+              onChange={e => setFormData(f => ({ ...f, base: e.target.value }))} 
+              onAddNew={handleSaveBase}
+              addNewLabel="Cadastrar Base"
+              required 
+            />
           </div>
           <div className="grid grid-cols-2 gap-6">
             <Input label="Valor" type="number" step="0.01" prefix="R$" value={formData.valor || ''} onChange={e => setFormData(f => ({ ...f, valor: Number(e.target.value) }))} required />
