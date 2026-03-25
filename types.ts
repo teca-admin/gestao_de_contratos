@@ -12,11 +12,8 @@ export interface PurchaseRecord {
   id?: string;
   user_id?: string;
   fornecedor: string;
-  categoria: Category;
+  categoria: string;
   base: BaseLocation;
-  documento: string;
-  descricao: string;
-  pedido: string;
   valor: number;
   vencimento: string;
   created_at?: string;

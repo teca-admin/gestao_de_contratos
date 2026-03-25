@@ -3,7 +3,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { PurchaseRecord, Category } from './types.ts';
 import { INITIAL_BASES, CATEGORIES, APP_CONFIG } from './constants.ts';
-import { Input, Select, DatePicker } from './components/Input.tsx';
+import { Input, Select, DatePicker, SearchableSelect } from './components/Input.tsx';
+import { DateRangePicker } from './components/DateRangePicker.tsx';
 import { Modal } from './components/Modal.tsx';
 import { ContextMenu } from './components/ContextMenu.tsx';
 
@@ -28,6 +29,8 @@ const App: React.FC = () => {
   const [loginError, setLoginError] = useState('');
 
   const [records, setRecords] = useState<PurchaseRecord[]>([]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const [suppliers, setSuppliers] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -37,16 +40,14 @@ const App: React.FC = () => {
 
   const [formData, setFormData] = useState<Partial<PurchaseRecord>>({
     fornecedor: '',
-    categoria: undefined,
+    categoria: '',
     base: '',
-    documento: '',
-    descricao: '',
-    pedido: '',
     valor: 0,
     vencimento: ''
   });
 
   const [selectedBase, setSelectedBase] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<{ start: string; end: string }>({ start: '', end: '' });
 
   useEffect(() => {
     const savedUser = localStorage.getItem('wfs_session');
@@ -59,13 +60,67 @@ const App: React.FC = () => {
   useEffect(() => {
     if (user) {
       fetchRecords();
+      fetchCategories();
+      fetchSuppliers();
     }
   }, [user]);
+
+  const fetchSuppliers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('fornecedores')
+        .select('nome')
+        .order('nome');
+      if (error) throw error;
+      setSuppliers(data.map(s => s.nome));
+    } catch (error) {
+      console.error('Erro ao buscar fornecedores:', error);
+    }
+  };
+
+  const handleSaveSupplier = async (name: string) => {
+    try {
+      const { error } = await supabase
+        .from('fornecedores')
+        .insert([{ nome: name.toUpperCase() }]);
+      if (error) throw error;
+      fetchSuppliers();
+      setFormData(f => ({ ...f, fornecedor: name.toUpperCase() }));
+    } catch (error: any) {
+      alert('Erro ao salvar fornecedor: ' + error.message);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('categorias')
+        .select('nome')
+        .order('nome');
+      if (error) throw error;
+      setCategories(data.map(c => c.nome));
+    } catch (error) {
+      console.error('Erro ao buscar categorias:', error);
+    }
+  };
+
+  const handleSaveCategory = async (name: string) => {
+    try {
+      const { error } = await supabase
+        .from('categorias')
+        .insert([{ nome: name.toUpperCase() }]);
+      if (error) throw error;
+      fetchCategories();
+      setFormData(f => ({ ...f, categoria: name.toUpperCase() }));
+    } catch (error: any) {
+      alert('Erro ao salvar categoria: ' + error.message);
+    }
+  };
 
   const handleError = (error: any) => {
     console.error('Erro detectado:', error);
     let message = error.message || 'Erro desconhecido';
-
+    
     if (error.code === '42501') {
       message = "PERMISSÃO NEGADA: O Supabase bloqueou o acesso. \n\nSOLUÇÃO: Execute o script SQL de 'GRANT USAGE' e 'CREATE POLICY' no seu painel SQL Editor do Supabase para o schema 'teca_gestao_de_contratos'.";
     } else if (error.message?.includes('invalid input syntax for type uuid')) {
@@ -129,7 +184,7 @@ const App: React.FC = () => {
       setFormData(record);
     } else {
       setIsEditing(false);
-      setFormData({ fornecedor: '', categoria: undefined, base: '', documento: '', descricao: '', pedido: '', valor: 0, vencimento: '' });
+      setFormData({ fornecedor: '', categoria: '', base: '', valor: 0, vencimento: '' });
     }
     setIsModalOpen(true);
   };
@@ -142,9 +197,6 @@ const App: React.FC = () => {
       fornecedor: formData.fornecedor,
       categoria: formData.categoria,
       base: formData.base,
-      documento: formData.documento || '',
-      descricao: formData.descricao || '',
-      pedido: formData.pedido || '',
       valor: Number(formData.valor),
       vencimento: formData.vencimento,
       user_id: String(user.id)
@@ -157,7 +209,7 @@ const App: React.FC = () => {
           .update(recordPayload)
           .eq('id', formData.id)
           .select();
-
+        
         if (error) throw error;
         if (data) setRecords(prev => prev.map(r => r.id === formData.id ? data[0] : r));
       } else {
@@ -165,7 +217,7 @@ const App: React.FC = () => {
           .from('purchase_records')
           .insert([recordPayload])
           .select();
-
+        
         if (error) throw error;
         if (data) setRecords(prev => [data[0], ...prev]);
       }
@@ -182,7 +234,7 @@ const App: React.FC = () => {
         .from('purchase_records')
         .delete()
         .eq('id', recordToDelete);
-
+      
       if (error) throw error;
       setRecords(prev => prev.filter(r => r.id !== recordToDelete));
       setIsDeleteModalOpen(false);
@@ -196,23 +248,33 @@ const App: React.FC = () => {
     setContextMenu({ x: e.clientX, y: e.clientY, recordId });
   };
 
+  const recordsInDateRange = useMemo(() => {
+    if (!dateRange.start && !dateRange.end) return records;
+    
+    return records.filter(r => {
+      const recordDate = r.vencimento;
+      if (dateRange.start && recordDate < dateRange.start) return false;
+      if (dateRange.end && recordDate > dateRange.end) return false;
+      return true;
+    });
+  }, [records, dateRange]);
 
   const summaries = useMemo(() => {
     const map = new Map<string, { total: number; count: number }>();
-    records.forEach(r => {
+    recordsInDateRange.forEach(r => {
       const current = map.get(r.base) || { total: 0, count: 0 };
       map.set(r.base, { total: current.total + Number(r.valor), count: current.count + 1 });
     });
     return Array.from(map.entries()).map(([base, stats]) => ({ base, ...stats }));
-  }, [records]);
+  }, [recordsInDateRange]);
 
   const filteredRecords = useMemo(() => {
-    if (!selectedBase) return records;
-    return records.filter(r => r.base === selectedBase);
-  }, [records, selectedBase]);
+    if (!selectedBase) return recordsInDateRange;
+    return recordsInDateRange.filter(r => r.base === selectedBase);
+  }, [recordsInDateRange, selectedBase]);
 
-  const totalGeral = records.reduce((acc, curr) => acc + Number(curr.valor), 0);
-  const formatCurrency = (val: number) =>
+  const totalGeral = recordsInDateRange.reduce((acc, curr) => acc + Number(curr.valor), 0);
+  const formatCurrency = (val: number) => 
     val.toLocaleString(APP_CONFIG.LOCALE, { style: 'currency', currency: APP_CONFIG.CURRENCY });
 
   if (authLoading && !user) {
@@ -239,7 +301,7 @@ const App: React.FC = () => {
             <h1 className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-2">Login Corporativo</h1>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">SISTEMA DE GESTÃO WFS</p>
           </div>
-
+          
           <form onSubmit={handleLogin} className="p-10 space-y-6">
             {loginError && <div className="p-4 bg-amber-50 border-l-4 border-amber-500 text-amber-800 text-[10px] font-bold uppercase">{loginError}</div>}
             <div className="space-y-1.5">
@@ -292,7 +354,7 @@ const App: React.FC = () => {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5 block">WFS CORPORATE</span>
             </div>
           </div>
-
+          
           <div className="flex items-center gap-6">
             <div className="text-right border-r border-slate-100 pr-6">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Total Lançado</p>
@@ -315,7 +377,7 @@ const App: React.FC = () => {
 
       <main className="max-w-[1600px] mx-auto px-8 py-10 space-y-10">
         <section className="flex flex-col xl:flex-row gap-6">
-          <div
+          <div 
             onClick={() => setSelectedBase(null)}
             className={`w-full xl:w-[350px] shrink-0 p-7 border shadow-sm border-t-4 flex flex-col justify-center cursor-pointer transition-all active:scale-95
               ${selectedBase === null ? 'bg-slate-900 border-slate-900 border-t-slate-800' : 'bg-white border-slate-200 border-t-slate-900 hover:border-slate-300'}
@@ -324,12 +386,12 @@ const App: React.FC = () => {
             <p className={`text-[11px] font-bold uppercase tracking-widest mb-1 ${selectedBase === null ? 'text-slate-400' : 'text-slate-400'}`}>Custo Global Consolidado</p>
             <p className={`text-3xl font-extrabold ${selectedBase === null ? 'text-white' : 'text-slate-900'}`}>{formatCurrency(totalGeral)}</p>
           </div>
-
+          
           <div className="flex-1 overflow-x-auto pb-2">
             <div className="flex gap-4 min-w-max">
               {summaries.map((s) => (
-                <div
-                  key={s.base}
+                <div 
+                  key={s.base} 
                   onClick={() => setSelectedBase(selectedBase === s.base ? null : s.base)}
                   className={`w-[260px] p-6 border shadow-sm border-t-4 cursor-pointer transition-all active:scale-95
                     ${selectedBase === s.base ? 'bg-indigo-600 border-indigo-600 border-t-indigo-400' : 'bg-white border-slate-200 border-t-indigo-500 hover:border-indigo-200'}
@@ -356,8 +418,12 @@ const App: React.FC = () => {
                 </span>
               )}
             </div>
-
+            
             <div className="flex items-center gap-4 w-full md:w-auto">
+              <DateRangePicker 
+                value={dateRange}
+                onChange={setDateRange}
+              />
 
               <button onClick={() => handleOpenModal()} className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 shadow-lg active:scale-95 flex items-center gap-2 whitespace-nowrap">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -380,23 +446,19 @@ const App: React.FC = () => {
                   <th className="px-6 py-5">FORNECEDOR</th>
                   <th className="px-6 py-5">CATEGORIA</th>
                   <th className="px-6 py-5">BASE</th>
-                  <th className="px-6 py-5">DOCUMENTO</th>
-                  <th className="px-6 py-5">PEDIDO</th>
                   <th className="px-6 py-5">VALOR</th>
                   <th className="px-6 py-5">VENCIMENTO</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredRecords.length === 0 && !loading ? (
-                  <tr><td colSpan={7} className="py-20 text-slate-300 font-bold uppercase tracking-widest">Nenhum registro encontrado</td></tr>
+                  <tr><td colSpan={5} className="py-20 text-slate-300 font-bold uppercase tracking-widest">Nenhum registro encontrado</td></tr>
                 ) : (
                   filteredRecords.map((record) => (
                     <tr key={record.id} onContextMenu={(e) => handleContextMenu(e, record.id!)} className="hover:bg-slate-50 transition-all cursor-context-menu">
                       <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.fornecedor}</td>
                       <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.categoria}</td>
                       <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.base}</td>
-                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{record.documento || '---'}</td>
-                      <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">#{record.pedido || '---'}</td>
                       <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{formatCurrency(Number(record.valor))}</td>
                       <td className="px-6 py-6 text-[10px] text-black font-bold uppercase">{new Date(record.vencimento + 'T00:00:00').toLocaleDateString('pt-BR')}</td>
                     </tr>
@@ -409,19 +471,30 @@ const App: React.FC = () => {
       </main>
 
       {contextMenu && <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={() => setContextMenu(null)} onEdit={() => handleOpenModal(records.find(r => r.id === contextMenu.recordId))} onDelete={() => { setRecordToDelete(contextMenu.recordId); setIsDeleteModalOpen(true); }} />}
-
+      
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={isEditing ? "Editar Registro" : "Novo Lançamento"}>
         <form onSubmit={handleSubmit} className="space-y-6">
-          <Input label="FORNECEDOR" value={formData.fornecedor} onChange={e => setFormData(f => ({ ...f, fornecedor: e.target.value }))} required />
+          <SearchableSelect 
+            label="FORNECEDOR" 
+            options={suppliers} 
+            value={formData.fornecedor} 
+            onChange={e => setFormData(f => ({ ...f, fornecedor: e.target.value }))} 
+            onAddNew={handleSaveSupplier}
+            addNewLabel="Cadastrar Fornecedor"
+            required 
+          />
           <div className="grid grid-cols-2 gap-6">
-            <Select label="CATEGORIA" options={CATEGORIES} value={formData.categoria} onChange={e => setFormData(f => ({ ...f, categoria: e.target.value as Category }))} required />
-            <Select label="BASE" options={INITIAL_BASES} value={formData.base} onChange={e => setFormData(f => ({ ...f, base: e.target.value }))} required />
+            <SearchableSelect 
+              label="CATEGORIA" 
+              options={categories} 
+              value={formData.categoria} 
+              onChange={e => setFormData(f => ({ ...f, categoria: e.target.value }))} 
+              onAddNew={handleSaveCategory}
+              addNewLabel="Cadastrar Categoria"
+              required 
+            />
+            <SearchableSelect label="BASE" options={INITIAL_BASES} value={formData.base} onChange={e => setFormData(f => ({ ...f, base: e.target.value }))} required />
           </div>
-          <div className="grid grid-cols-2 gap-6">
-            <Input label="Documento" value={formData.documento} onChange={e => setFormData(f => ({ ...f, documento: e.target.value }))} />
-            <Input label="Pedido" maxLength={6} value={formData.pedido} onChange={e => setFormData(f => ({ ...f, pedido: e.target.value.replace(/\D/g, '') }))} />
-          </div>
-          <Input label="Descrição" value={formData.descricao} onChange={e => setFormData(f => ({ ...f, descricao: e.target.value }))} />
           <div className="grid grid-cols-2 gap-6">
             <Input label="Valor" type="number" step="0.01" prefix="R$" value={formData.valor || ''} onChange={e => setFormData(f => ({ ...f, valor: Number(e.target.value) }))} required />
             <DatePicker label="Vencimento" value={formData.vencimento} onChange={e => setFormData(f => ({ ...f, vencimento: e.target.value }))} required />

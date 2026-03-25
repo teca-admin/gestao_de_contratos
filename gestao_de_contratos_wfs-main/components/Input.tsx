@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -7,19 +8,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   prefix?: string;
 }
 
-export const Input: React.FC<InputProps> = ({ label, error, prefix, className, onKeyDown, ...props }) => {
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      const focusable = Array.from(document.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
-      const index = focusable.indexOf(e.currentTarget);
-      if (index > -1 && focusable[index + 1]) {
-        focusable[index + 1].focus();
-      }
-    }
-    if (onKeyDown) onKeyDown(e);
-  };
-
+export const Input: React.FC<InputProps> = ({ label, error, prefix, className, ...props }) => {
   return (
     <div className="flex flex-col gap-1.5 w-full text-left">
       <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
@@ -35,7 +24,6 @@ export const Input: React.FC<InputProps> = ({ label, error, prefix, className, o
         )}
         <input
           {...props}
-          onKeyDown={handleKeyDown}
           className={`
             w-full min-h-[48px] px-4 py-2
             border border-slate-200 bg-slate-50/50
@@ -91,6 +79,7 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
     window.addEventListener('resize', handleEvents);
     
     const handleClickOutside = (event: MouseEvent) => {
+      // Ignora se o clique for dentro do portal do select
       const portal = document.querySelector('[data-select-portal]');
       if (portal?.contains(event.target as Node)) return;
       
@@ -110,28 +99,6 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
   const handleSelect = (option: string) => {
     onChange({ target: { value: option } });
     setIsOpen(false);
-    
-    // Move focus to next element
-    setTimeout(() => {
-      const focusable = Array.from(document.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
-      const index = focusable.indexOf(containerRef.current?.querySelector('button') as HTMLElement);
-      if (index > -1 && focusable[index + 1]) {
-        focusable[index + 1].focus();
-      }
-    }, 10);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (!isOpen) {
-        const focusable = Array.from(document.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
-        const index = focusable.indexOf(e.currentTarget as HTMLElement);
-        if (index > -1 && focusable[index + 1]) {
-          focusable[index + 1].focus();
-        }
-      }
-    }
   };
 
   return (
@@ -143,7 +110,6 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        onKeyDown={handleKeyDown}
         className={`
           w-full min-h-[48px] px-4 py-2 flex items-center justify-between
           border border-slate-200 bg-slate-50/50 text-left
@@ -166,19 +132,27 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
         </svg>
       </button>
 
-      {isOpen && (
+      {isOpen && coords.width > 0 && createPortal(
         <div 
-          className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl rounded-sm flex flex-col z-50"
+          data-select-portal
+          style={{ 
+            position: 'fixed', 
+            top: coords.top + 4, 
+            left: coords.left, 
+            width: coords.width,
+            zIndex: 9999 
+          }}
+          className="bg-white border border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.2)] overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 rounded-sm"
         >
           <div className="max-h-60 overflow-y-auto py-1">
             {options.map((opt) => (
               <button
                 key={opt}
                 type="button"
-                onMouseDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()} // Impede perda de foco antes do click
                 onClick={() => handleSelect(opt)}
                 className={`
-                  w-full px-4 py-3 text-[11px] text-left font-bold transition-colors uppercase
+                  w-full px-4 py-3 text-[11px] text-left font-semibold transition-colors
                   ${value === opt ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50 hover:text-indigo-600'}
                 `}
               >
@@ -186,7 +160,8 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
               </button>
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       
       {error && <span className="text-[10px] font-semibold text-red-500 mt-1">{error}</span>}
@@ -194,206 +169,7 @@ export const Select: React.FC<SelectProps> = ({ label, options, value, onChange,
   );
 };
 
-interface SearchableSelectProps extends SelectProps {
-  onAddNew?: (value: string) => void;
-  addNewLabel?: string;
-}
-
-export const SearchableSelect: React.FC<SearchableSelectProps> = ({ 
-  label, 
-  options, 
-  value, 
-  onChange, 
-  error, 
-  required,
-  onAddNew,
-  addNewLabel = "Adicionar novo"
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const filteredOptions = options.filter(opt => 
-    opt.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const exactMatch = options.find(opt => opt.toLowerCase() === searchTerm.toLowerCase());
-  const canAddNew = onAddNew && searchTerm.trim() && !exactMatch;
-  const totalItems = filteredOptions.length + (canAddNew ? 1 : 0);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setActiveIndex(-1);
-    }
-  }, [isOpen]);
-
-  const handleSelect = (option: string) => {
-    onChange({ target: { value: option } });
-    setIsOpen(false);
-    setSearchTerm('');
-    
-    // Move focus to next element after a short delay to allow state updates
-    setTimeout(() => {
-      const focusable = Array.from(document.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
-      const index = focusable.indexOf(inputRef.current!);
-      if (index > -1 && focusable[index + 1]) {
-        focusable[index + 1].focus();
-      }
-    }, 10);
-  };
-
-  const handleAddNew = () => {
-    if (onAddNew && searchTerm.trim()) {
-      onAddNew(searchTerm.trim().toUpperCase());
-      setSearchTerm('');
-      setIsOpen(false);
-      
-      // Move focus to next element
-      setTimeout(() => {
-        const focusable = Array.from(document.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
-        const index = focusable.indexOf(inputRef.current!);
-        if (index > -1 && focusable[index + 1]) {
-          focusable[index + 1].focus();
-        }
-      }, 10);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!isOpen) {
-        setIsOpen(true);
-      } else {
-        setActiveIndex(prev => (prev + 1) % totalItems);
-      }
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (isOpen) {
-        setActiveIndex(prev => (prev - 1 + totalItems) % totalItems);
-      }
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (isOpen) {
-        if (activeIndex >= 0 && activeIndex < filteredOptions.length) {
-          handleSelect(filteredOptions[activeIndex]);
-        } else if (activeIndex === filteredOptions.length && canAddNew) {
-          handleAddNew();
-        } else if (exactMatch) {
-          handleSelect(exactMatch);
-        } else if (canAddNew) {
-          handleAddNew();
-        } else if (filteredOptions.length > 0) {
-          handleSelect(filteredOptions[0]);
-        }
-      } else {
-        // If closed, just move to next
-        const focusable = Array.from(document.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
-        const index = focusable.indexOf(inputRef.current!);
-        if (index > -1 && focusable[index + 1]) {
-          focusable[index + 1].focus();
-        }
-      }
-    } else if (e.key === 'Escape') {
-      setIsOpen(false);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-1.5 w-full text-left relative" ref={containerRef}>
-      <label className="text-[11px] font-bold text-slate-400 uppercase tracking-widest ml-1">
-        {label} {required && <span className="text-red-400">*</span>}
-      </label>
-      
-      <div className="relative">
-        <input
-          ref={inputRef}
-          type="text"
-          value={isOpen ? searchTerm : (value || '')}
-          onChange={(e) => {
-            setSearchTerm(e.target.value);
-            if (!isOpen) setIsOpen(true);
-            setActiveIndex(-1);
-          }}
-          onFocus={() => setIsOpen(true)}
-          onKeyDown={handleKeyDown}
-          placeholder={value || "Pesquisar..."}
-          className={`
-            w-full h-12 px-4 bg-slate-50 border border-slate-200 text-slate-900 font-bold text-[11px] uppercase focus:outline-none focus:border-indigo-500 transition-all
-            ${error ? 'border-red-500' : 'hover:border-slate-300'}
-            ${isOpen ? 'border-indigo-500 ring-4 ring-indigo-500/10 bg-white' : ''}
-          `}
-        />
-        <div className="absolute right-4 inset-y-0 flex items-center pointer-events-none">
-          <svg className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </div>
-
-      {isOpen && (
-        <div className="absolute top-full left-0 w-full mt-1 bg-white border border-slate-200 shadow-2xl rounded-sm flex flex-col z-50 overflow-hidden">
-          <div className="max-h-60 overflow-y-auto py-1">
-            {filteredOptions.length > 0 ? (
-              filteredOptions.map((opt, index) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => handleSelect(opt)}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  className={`
-                    w-full px-4 py-3 text-[11px] text-left font-bold transition-colors uppercase
-                    ${value === opt ? 'bg-indigo-50 text-indigo-700' : ''}
-                    ${activeIndex === index ? 'bg-slate-100 text-indigo-600' : 'text-slate-600'}
-                    ${value !== opt && activeIndex !== index ? 'hover:bg-slate-50 hover:text-indigo-600' : ''}
-                  `}
-                >
-                  {opt}
-                </button>
-              ))
-            ) : (
-              <div className="px-4 py-3 text-[10px] text-slate-400 font-bold uppercase italic">Nenhum resultado</div>
-            )}
-            
-            {canAddNew && (
-              <button
-                type="button"
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={handleAddNew}
-                onMouseEnter={() => setActiveIndex(filteredOptions.length)}
-                className={`
-                  w-full px-4 py-3 text-[10px] text-left font-black transition-colors border-t border-indigo-100 flex items-center gap-2
-                  ${activeIndex === filteredOptions.length ? 'bg-indigo-100 text-indigo-700' : 'text-indigo-600 bg-indigo-50/50'}
-                `}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                {addNewLabel}: "{searchTerm.toUpperCase()}"
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-      
-      {error && <span className="text-[10px] font-semibold text-red-500 mt-1">{error}</span>}
-    </div>
-  );
-};
-
+// Fix: Redefined prop types for DatePicker to include 'value' and 'onChange' which were previously omitted by mistake.
 export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({ 
   label, 
   value, 
@@ -465,8 +241,6 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
     setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
   };
 
-  const [focusedDay, setFocusedDay] = useState(new Date().getDate());
-
   const handleSelectDay = (day: number) => {
     const selected = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
     const yyyy = selected.getFullYear();
@@ -478,42 +252,6 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
       onChange({ target: { value: formatted } } as any);
     }
     setIsOpen(false);
-
-    // Move focus to next element
-    setTimeout(() => {
-      const focusable = Array.from(document.querySelectorAll('button, input, select, textarea, [tabindex]:not([tabindex="-1"])')) as HTMLElement[];
-      const index = focusable.indexOf(containerRef.current?.querySelector('button') as HTMLElement);
-      if (index > -1 && focusable[index + 1]) {
-        focusable[index + 1].focus();
-      }
-    }, 10);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (isOpen) {
-        handleSelectDay(focusedDay);
-      } else {
-        setIsOpen(true);
-      }
-    } else if (isOpen) {
-      if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        setFocusedDay(prev => Math.min(prev + 1, daysInMonth));
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        setFocusedDay(prev => Math.max(prev - 1, 1));
-      } else if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setFocusedDay(prev => Math.min(prev + 7, daysInMonth));
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        setFocusedDay(prev => Math.max(prev - 7, 1));
-      } else if (e.key === 'Escape') {
-        setIsOpen(false);
-      }
-    }
   };
 
   const currentYear = viewDate.getFullYear();
@@ -521,6 +259,7 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
   
+  // Cálculo de linhas necessárias (evita espaço vazio)
   const totalSlotsNeeded = firstDay + daysInMonth;
   const rowsNeeded = Math.ceil(totalSlotsNeeded / 7);
   const totalGridSlots = rowsNeeded * 7;
@@ -537,7 +276,6 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        onKeyDown={handleKeyDown}
         className={`
           w-full min-h-[48px] px-4 py-2 flex items-center justify-between
           border border-slate-200 bg-slate-50/50 text-left
@@ -551,7 +289,7 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
           {displayValue || 'Escolha uma data..'}
         </span>
         <svg className={`w-5 h-5 text-slate-400 transition-colors ${isOpen ? 'text-indigo-600' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2-2v12a2 2 0 002 2z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       </button>
 
@@ -560,12 +298,11 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
           data-datepicker-portal
           style={{ 
             position: 'fixed', 
-            top: coords.top + 4, 
-            left: coords.left,
-            width: coords.width, // Mesma largura do input
-            zIndex: 99999 
+            top: coords.top + 8, 
+            left: coords.left, 
+            zIndex: 9999 
           }}
-          className="bg-white border border-slate-200 shadow-2xl p-4 rounded-sm"
+          className="w-[280px] bg-white border border-slate-200 shadow-[0_30px_60px_-12px_rgba(0,0,0,0.3)] p-4 animate-in fade-in slide-in-from-top-2 duration-200 rounded-sm"
         >
           <div className="flex items-center justify-between mb-4">
             <button type="button" onClick={handlePrevMonth} className="p-2 hover:bg-slate-100 text-slate-400 hover:text-indigo-600 transition-all rounded-full">
@@ -591,9 +328,9 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
             ))}
           </div>
 
-          <div className="grid grid-cols-7 border-t border-l border-slate-100">
+          <div className="grid grid-cols-7 gap-px bg-slate-100 border border-slate-100 overflow-hidden">
             {Array.from({ length: firstDay }).map((_, i) => (
-              <div key={`empty-${i}`} className="bg-white aspect-square border-b border-r border-slate-100" />
+              <div key={`empty-${i}`} className="bg-white aspect-square" />
             ))}
             
             {Array.from({ length: daysInMonth }).map((_, i) => {
@@ -612,13 +349,10 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
                   key={day}
                   type="button"
                   onClick={() => handleSelectDay(day)}
-                  onMouseEnter={() => setFocusedDay(day)}
                   className={`
-                    relative aspect-square flex items-center justify-center text-[11px] font-bold transition-all border-b border-r border-slate-100
-                    ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white' : 'text-slate-600 bg-white'}
-                    ${isToday && !isSelected ? 'ring-1 ring-inset ring-indigo-200' : ''}
-                    ${focusedDay === day ? 'bg-indigo-50 text-indigo-700' : ''}
-                    ${!isSelected && focusedDay !== day ? 'hover:bg-indigo-50 hover:text-indigo-600' : ''}
+                    relative bg-white aspect-square flex items-center justify-center text-[11px] font-bold transition-all
+                    hover:bg-indigo-50 hover:text-indigo-600
+                    ${isSelected ? 'bg-indigo-600 text-white hover:bg-indigo-700 hover:text-white ring-2 ring-indigo-600 ring-inset' : 'text-slate-600'}
                   `}
                 >
                   {day}
@@ -629,8 +363,9 @@ export const DatePicker: React.FC<Omit<InputProps, 'type'>> = ({
               );
             })}
             
+            {/* Slots dinâmicos de final de grade para manter o alinhamento */}
             {Array.from({ length: totalGridSlots - totalSlotsNeeded }).map((_, i) => (
-              <div key={`empty-end-${i}`} className="bg-white aspect-square border-b border-r border-slate-100" />
+              <div key={`empty-end-${i}`} className="bg-white aspect-square" />
             ))}
           </div>
         </div>,
